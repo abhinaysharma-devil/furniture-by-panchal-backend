@@ -1,6 +1,6 @@
 import express from "express";
 import { registerRoutes } from "./routes.js";
-import { setupVite, serveStatic, log } from "./vite.js";
+import { setupVite, log } from "./vite.js";
 import { db } from "../drizzle.config.js"; // Import the db instance
 
 const app = express();
@@ -34,6 +34,9 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
+    }else if (path === "/"){
+      log(`${req.method} === ${path} ${res.statusCode} in ${duration}ms`);
+      // res.status(200).send("welcome to the API");
     }
   });
 
@@ -54,11 +57,11 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+  // if (app.get("env") === "development") {
+  await setupVite(app, server);
+  // } else {
+  //   serveStatic(app);
+  // }
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
