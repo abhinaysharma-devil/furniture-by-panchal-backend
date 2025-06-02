@@ -2,8 +2,36 @@ import express from "express";
 import { registerRoutes } from "./routes.js";
 import { setupVite, log } from "./vite.js";
 import { db } from "../drizzle.config.js"; // Import the db instance
+import cors from "cors";
 
 const app = express();
+
+// CORS configuration
+// const corsOptions = {
+//   origin: 'http://localhost:5173', // Allow requests from your frontend
+//   optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
+//   credentials: true, // Allow cookies to be sent with requests
+// };
+app.use(cors());
+
+app.use(function (req, res, next) {
+	// Website you wish to allow to connect
+	res.setHeader('Access-Control-Allow-Origin', '*')
+
+	// Request methods you wish to allow
+	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE')
+
+	// Request headers you wish to allow
+	res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization')
+
+	// Set to true if you need the website to include cookies in the requests sent
+	// to the API (e.g. in case you use sessions)
+	res.setHeader('Access-Control-Allow-Credentials', true)
+
+	// Pass to next layer of middleware
+	next()
+})
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
