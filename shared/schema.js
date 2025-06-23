@@ -17,6 +17,7 @@ export const categories = pgTable("categories", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   imgPath: text("imgPath").notNull(),
+  slug: text("slug").notNull(),
 });
 
 // Furniture Item model
@@ -31,6 +32,7 @@ export const furnitureItems = pgTable("furniture_items", {
   inStock: boolean("inStock").default(true),
   rating: doublePrecision("rating").default(0),
   reviewCount: integer("reviewCount").default(0),
+  slug: text("slug").notNull(),
 });
 
 // Cart model

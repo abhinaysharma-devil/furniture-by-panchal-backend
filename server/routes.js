@@ -16,6 +16,7 @@ import fetch from 'node-fetch'; // Or your preferred HTTP client for Node.js
 import { eq, and, desc, inArray } from 'drizzle-orm';
 
 import * as schema from "../shared/schema.js";
+import jwt from "jsonwebtoken";
 
 // Session types
 // TypeScript specific session declaration removed.
@@ -40,8 +41,18 @@ export async function registerRoutes(app) {
 
   // Middleware to check if user is authenticated
   const isAuthenticated = (req, res, next) => {
-    if (req.session.isAuthenticated) {
-      next();
+
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+          console.error("JWT verification error:", err);
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = decoded.userId;
+        req.session.userId = userId;
+        next();
+      });
     } else {
       res.status(401).json({ message: "Unauthorized" });
     }
@@ -53,6 +64,8 @@ export async function registerRoutes(app) {
   // *********************************** Auth routes ************************************
   apiRouter.post("/auth/register", async (req, res) => {
     try {
+
+      console.log("Register request body>>>>>>>>>>>>>:", JSON.stringify(req.body));
       const db = req.app.locals.db;
       const userData = insertUserSchema.parse(req.body);
 
@@ -75,7 +88,12 @@ export async function registerRoutes(app) {
       if (newUsers.length === 0) {
         return res.status(500).json({ message: "Failed to create user" });
       }
-      res.status(201).json(newUsers[0]);
+      const newUser = newUsers[0];
+      // Set session
+      req.session.userId = newUser.id;
+      req.session.isAuthenticated = true;
+      req.session.user = { id: newUser.id, name: newUser.name, email: newUser.email };
+      res.status(201).json(newUser);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: error.errors });
@@ -110,28 +128,21 @@ export async function registerRoutes(app) {
 
       // // Compare passwords
       const isMatch = await bcrypt.compare(password, user.password);
-      console.log("Password :", password)
-      console.log("user.password:", user.password)
+
       if (!isMatch) {
         return res.status(400).json({ message: "Invalid credentials" });
       }
 
-      // Compare passwords
-      // const isMatch = await bcrypt.compare(password, user.password);
-      // console.log("Password :", password)
-      // console.log("user.password:", user.password)
-      // if (password != user.password) {
-      //   return res.status(400).json({ message: "Invalid credentials" });
-      // }
-
-      // Set session
-      req.session.userId = user.id;
-      req.session.isAuthenticated = true;
-      req.session.user = { id: user.id, name: user.name, email: user.email }; // Store some user info
-
-      // Return user without password
       const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+
+      jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
+        if (err) {
+          console.error("JWT signing error:", err);
+          return res.status(500).json({ message: "Internal server error" });
+        }
+        res.json({ user: userWithoutPassword, token });
+      });
+
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: error.errors });
@@ -391,6 +402,8 @@ export async function registerRoutes(app) {
     try {
       const db = req.app.locals.db;
       const userId = req.session.userId;
+      console.log('userId ==========', userId)
+
       const orders = await db.select().from(schema.orders)
         .where(eq(schema.orders.userId, userId))
         .orderBy(desc(schema.orders.createdAt));
@@ -489,7 +502,7 @@ export async function registerRoutes(app) {
   });
 
   // User profile route
-  apiRouter.get("/profile", isAuthenticated, async (req, res) => {
+  apiRouter.get("/auth/profile", isAuthenticated, async (req, res) => {
     try {
       const db = req.app.locals.db;
       const userId = req.session.userId;
@@ -510,31 +523,25 @@ export async function registerRoutes(app) {
     }
   });
 
-  apiRouter.put("/profile", isAuthenticated, async (req, res) => {
+  apiRouter.put("/auth/profile", isAuthenticated, async (req, res) => {
     try {
       const db = req.app.locals.db;
-      const userId = req.session.userId;
       const { name, email, mobile } = req.body;
 
-      // Update user data
-      const updatedUser = await storage.updateUser(userId, {
-        name,
-        email,
-        mobile
-      });
+      console.log("Update profile data:", { name, email, mobile });
+
       const updatedUsers = await db.update(schema.users).set({
         name,
         email,
         mobile
-      }).where(eq(schema.users.id, userId))
-        .returning({ id: schema.users.id, name: schema.users.name, email: schema.users.email, mobile: schema.users.mobile });
+      }).where(eq(schema.users.email, email)).returning({ id: schema.users.id, name: schema.users.name, email: schema.users.email, mobile: schema.users.mobile });
 
       if (updatedUsers.length === 0) {
         return res.status(404).json({ message: "User not found" });
       }
-      // Update session user info if needed
-      req.session.user = { ...req.session.user, name: updatedUsers[0].name, email: updatedUsers[0].email };
-      res.json(updatedUsers[0]);
+
+      // res.json(updatedUsers[0]);
+      res.json({ user: updatedUsers[0] });
     } catch (error) {
       console.error("Update profile error:", error);
       res.status(500).json({ message: "Internal server error" });

@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes.js";
 import { setupVite, log } from "./vite.js";
 import { db } from "../drizzle.config.js"; // Import the db instance
 import cors from "cors";
+import { orderRoutes } from "./routes/orderRoutes.js"; 
 
 const app = express();
 
@@ -37,6 +38,8 @@ app.use(express.urlencoded({ extended: false }));
 
 // Make the db instance available to routes
 app.locals.db = db;
+
+app.use("/api", orderRoutes())
 
 app.use((req, res, next) => {
   const start = Date.now();
