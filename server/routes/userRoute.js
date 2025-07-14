@@ -6,7 +6,8 @@ import {
     updateUser,
     deleteUser,
     userSignup,
-    userLogin
+    userLogin,
+    verifyOtp
 } from "../controller/userController.js";
 import { isAuthenticated } from "../universalFunctions.js";
 
@@ -15,8 +16,8 @@ const router = express.Router();
 
 export const userRoutes = function () {
     router.post("/auth/register", userSignup);
+    router.post("/auth/verifyOtp", verifyOtp);
     router.post("/auth/login", userLogin);
-
 
     router.get("/list", isAuthenticated, listUsers);
     router.get("/:id", isAuthenticated, getUser);

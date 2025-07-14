@@ -141,7 +141,8 @@ const universalDao = {
             id: schema.users.id,
             name: schema.users.name,
             email: schema.users.email,
-            mobile: schema.users.mobile
+            mobile: schema.users.mobile,
+            otp: schema.users.otp
         });
     },
 
@@ -164,6 +165,13 @@ const universalDao = {
 
     async addSubsEmail(payload) {
         return db.insert(schema.subsEmail).values(payload).returning();
+    },
+
+    async updateOtpStatus(payload) {
+        return db.update(schema.users)
+            .set({ is_otp_verified: 1 })
+            .where(eq(schema.users.id, payload.userId))
+            .returning();
     },
 
 }

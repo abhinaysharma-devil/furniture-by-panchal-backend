@@ -64,47 +64,47 @@ export async function registerRoutes(app) {
   const apiRouter = express.Router();
 
   // *********************************** Auth routes ************************************
-  apiRouter.post("/auth/register", async (req, res) => {
-    try {
+  // apiRouter.post("/auth/register", async (req, res) => {
+  //   try {
 
-      console.log("Register request body>>>>>>>>>>>>>:", JSON.stringify(req.body));
-      const db = req.app.locals.db;
-      const userData = insertUserSchema.parse(req.body);
+  //     console.log("Register request body>>>>>>>>>>>>>:", JSON.stringify(req.body));
+  //     const db = req.app.locals.db;
+  //     const userData = insertUserSchema.parse(req.body);
 
-      // Check if user already exists
-      const existingUsers = await db.select().from(schema.users).where(eq(schema.users.email, userData.email)).limit(1);
-      if (existingUsers.length > 0) {
-        return res.status(400).json({ message: "User already exists" });
-      }
+  //     // Check if user already exists
+  //     const existingUsers = await db.select().from(schema.users).where(eq(schema.users.email, userData.email)).limit(1);
+  //     if (existingUsers.length > 0) {
+  //       return res.status(400).json({ message: "User already exists" });
+  //     }
 
-      // Hash password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(userData.password, salt);
+  //     // Hash password
+  //     const salt = await bcrypt.genSalt(10);
+  //     const hashedPassword = await bcrypt.hash(userData.password, salt);
 
-      // Create user with hashed password
-      const newUsers = await db.insert(schema.users).values({
-        ...userData,
-        password: hashedPassword
-      }).returning({ id: schema.users.id, name: schema.users.name, email: schema.users.email, mobile: schema.users.mobile });
+  //     // Create user with hashed password
+  //     const newUsers = await db.insert(schema.users).values({
+  //       ...userData,
+  //       password: hashedPassword
+  //     }).returning({ id: schema.users.id, name: schema.users.name, email: schema.users.email, mobile: schema.users.mobile });
 
-      if (newUsers.length === 0) {
-        return res.status(500).json({ message: "Failed to create user" });
-      }
-      const newUser = newUsers[0];
-      // Set session
-      req.session.userId = newUser.id;
-      req.session.isAuthenticated = true;
-      req.session.user = { id: newUser.id, name: newUser.name, email: newUser.email };
-      res.status(201).json(newUser);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ message: error.errors });
-      } else {
-        console.error("Register error:", error);
-        res.status(500).json({ message: "Internal server error" });
-      }
-    }
-  });
+  //     if (newUsers.length === 0) {
+  //       return res.status(500).json({ message: "Failed to create user" });
+  //     }
+  //     const newUser = newUsers[0];
+  //     // Set session
+  //     req.session.userId = newUser.id;
+  //     req.session.isAuthenticated = true;
+  //     req.session.user = { id: newUser.id, name: newUser.name, email: newUser.email };
+  //     res.status(201).json(newUser);
+  //   } catch (error) {
+  //     if (error instanceof z.ZodError) {
+  //       res.status(400).json({ message: error.errors });
+  //     } else {
+  //       console.error("Register error:", error);
+  //       res.status(500).json({ message: "Internal server error" });
+  //     }
+  //   }
+  // });
 
 
   apiRouter.get("/test", async (req, res) => {

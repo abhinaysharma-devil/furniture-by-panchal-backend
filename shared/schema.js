@@ -9,6 +9,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   mobile: text("mobile"),
+  otp: integer("otp"),
+  is_otp_verified: boolean("is_otp_verified").default(0),
 });
 
 // Category model

@@ -3,6 +3,9 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { insertUserSchema } from "../../shared/schema.js";
 import randomInteger from 'random-int';
+import { sendMail } from "../../services/smtpServices.js";
+import otpTemplate from "../templates/mailTemplates.js";
+import jwt from "jsonwebtoken";
 
 export async function userLogin(req, res) {
     try {
@@ -60,7 +63,10 @@ export async function userLogin(req, res) {
 export async function userSignup(req, res) {
     try {
 
-        const userData = insertUserSchema.parse(req.body);
+        console.log("User signup request received>>>>>>>>>>>", req.body);
+
+        const userData = req.body
+        // const userData = insertUserSchema.parse(req.body);
 
         // Check if user already exists
         const existingUsers = await universalDao.getUserByEmail({ email: userData.email });
@@ -77,7 +83,8 @@ export async function userSignup(req, res) {
         // Create user
         const newUsers = await universalDao.createUser({
             ...userData,
-            password: hashedPassword,
+            otp: randomOtp,
+            password: hashedPassword
         });
 
         sendMail({
@@ -89,6 +96,45 @@ export async function userSignup(req, res) {
         res.status(201).json({ message: "Otp Send to your Mail", data: newUsers[0] });
 
     } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+        }
+        console.error("Create user error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+export async function verifyOtp(req, res) {
+    try {
+
+        const userData = req.body
+
+        // Check if user already exists
+        const existingUsers = await universalDao.getUserByEmail({ email: userData.email });
+        if (existingUsers.length == 0) {
+            return res.status(409).json({ message: "User with this email does not exist" });
+        }
+
+        if (existingUsers[0].otp !== userData.otp) {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        await universalDao.updateOtpStatus({ userId : existingUsers[0].id });
+
+        const { password: _, ...userWithoutPassword } = existingUsers[0];
+
+        const user = userWithoutPassword;
+
+        jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
+            if (err) {
+                console.error("JWT signing error:", err);
+                return res.status(500).json({ message: "Internal server error" });
+            }
+            res.json({ user: userWithoutPassword, token });
+        });
+
+    } catch (error) {
+        console.log("Verify OTP error:", error);
         if (error instanceof z.ZodError) {
             return res.status(400).json({ message: "Invalid user data", errors: error.errors });
         }
