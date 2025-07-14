@@ -14,7 +14,8 @@ CREATE TABLE "categories" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
 	"description" text NOT NULL,
-	"imgPath" text NOT NULL
+	"imgPath" text NOT NULL,
+	"slug" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "contact_us" (
@@ -35,7 +36,8 @@ CREATE TABLE "furniture_items" (
 	"featured" boolean DEFAULT false,
 	"inStock" boolean DEFAULT true,
 	"rating" double precision DEFAULT 0,
-	"reviewCount" integer DEFAULT 0
+	"reviewCount" integer DEFAULT 0,
+	"slug" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "orders" (
@@ -44,6 +46,12 @@ CREATE TABLE "orders" (
 	"orderDetails" text NOT NULL,
 	"status" text DEFAULT 'pending' NOT NULL,
 	"createdAt" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "subs_email" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"email" text NOT NULL,
+	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
 CREATE TABLE "users" (

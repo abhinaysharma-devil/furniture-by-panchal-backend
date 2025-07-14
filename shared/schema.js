@@ -66,12 +66,20 @@ export const contactUs = pgTable("contact_us", {
   hours: text("hours").notNull(),
 });
 
+export const subsEmail = pgTable("subs_email", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export const insertFurnitureItemSchema = createInsertSchema(furnitureItems).omit({ id: true });
 export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true });
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
+export const insertSubsEmailSchema = createInsertSchema(subsEmail).omit({ id: true });
 
 // Auth schemas
 export const loginSchema = z.object({

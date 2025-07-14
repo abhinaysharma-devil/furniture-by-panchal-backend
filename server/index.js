@@ -1,9 +1,14 @@
 import express from "express";
 import { registerRoutes } from "./routes.js";
 import { setupVite, log } from "./vite.js";
-import { db } from "../drizzle.config.js"; // Import the db instance
+import { db } from "../drizzle/db.js"; // Import the db instance
 import cors from "cors";
 import { orderRoutes } from "./routes/orderRoutes.js"; 
+import { itemsRoute } from "./routes/itemsRoute.js"; 
+import { categoryRoute } from "./routes/categoryRoute.js"; 
+import { cartRoute } from "./routes/cartRoute.js";
+import { userRoutes } from "./routes/userRoute.js";
+import { otherStuff } from "./routes/otherStuffRoute.js";
 
 const app = express();
 
@@ -40,6 +45,11 @@ app.use(express.urlencoded({ extended: false }));
 app.locals.db = db;
 
 app.use("/api", orderRoutes())
+app.use("/api/item", itemsRoute())
+app.use("/api/category", categoryRoute())
+app.use("/api/cart", cartRoute())
+app.use("/api/user", userRoutes())
+app.use("/api/stuff", otherStuff())
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -1,12 +1,14 @@
 {
-  "name": "rest-express",
+  "name": "furniture-by-panchal-backend",
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
   "scripts": {
     "dev": "nodemon server/index.js",
     "start": "node server/index.js",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node migrate.js"
   },
   "dependencies": {
     "@jridgewell/trace-mapping": "^0.3.25",
@@ -23,10 +25,12 @@
     "jsonwebtoken": "^9.0.2",
     "memorystore": "^1.6.7",
     "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pg": "^8.16.0",
+    "random-int": "^3.0.0",
     "resend": "^4.5.1",
     "rest-express": "file:",
     "ws": "^8.18.0",

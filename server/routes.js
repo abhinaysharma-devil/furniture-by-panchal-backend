@@ -17,6 +17,8 @@ import { eq, and, desc, inArray } from 'drizzle-orm';
 
 import * as schema from "../shared/schema.js";
 import jwt from "jsonwebtoken";
+import { sendMail } from "../services/smtpServices.js";
+import otpTemplate from "./templates/mailTemplates.js";
 
 // Session types
 // TypeScript specific session declaration removed.
@@ -47,14 +49,14 @@ export async function registerRoutes(app) {
       jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) {
           console.error("JWT verification error:", err);
-          return res.status(401).json({ message: "Unauthorized" });
+          return res.status(401).json({ message: "Unauthorize x" });
         }
         const userId = decoded.userId;
         req.session.userId = userId;
         next();
       });
     } else {
-      res.status(401).json({ message: "Unauthorized" });
+      res.status(401).json({ message: "Unauthorized y" });
     }
   };
 
@@ -132,6 +134,17 @@ export async function registerRoutes(app) {
       if (!isMatch) {
         return res.status(400).json({ message: "Invalid credentials" });
       }
+
+      sendMail({
+        to: "ab.sharma@thesynapses.com",
+        subject: "Login Notification",
+        html: otpTemplate(9098)
+      });
+
+      // Set session
+      req.session.userId = user.id;
+      req.session.isAuthenticated = true;
+
 
       const { password: _, ...userWithoutPassword } = user;
 
@@ -221,7 +234,24 @@ export async function registerRoutes(app) {
     }
   });
 
-  apiRouter.get("/furniture-items/:id", async (req, res) => {
+  // apiRouter.get("/furniture-items/:id", async (req, res) => {
+  //   try {
+  //     const db = req.app.locals.db;
+  //     const id = parseInt(req.params.id);
+  //     if (isNaN(id)) return res.status(400).json({ message: "Invalid item ID" });
+
+  //     const items = await db.select().from(schema.furnitureItems).where(eq(schema.furnitureItems.id, id)).limit(1);
+  //     if (items.length === 0) {
+  //       return res.status(404).json({ message: "Furniture item not found" });
+  //     }
+  //     res.json(items[0]);
+  //   } catch (error) {
+  //     console.error("Get furniture item by ID error:", error);
+  //     res.status(500).json({ message: "Internal server error" });
+  //   }
+  // });
+
+  apiRouter.get("/furniture-items/:slug", async (req, res) => {
     try {
       const db = req.app.locals.db;
       const id = parseInt(req.params.id);
@@ -327,73 +357,6 @@ export async function registerRoutes(app) {
         console.error("Add to cart error:", error);
         res.status(500).json({ message: "Internal server error" });
       }
-    }
-  });
-
-  apiRouter.put("/cart/:id", isAuthenticated, async (req, res) => {
-    try {
-      const db = req.app.locals.db;
-      const userId = req.session.userId;
-      const cartItemId = parseInt(req.params.id);
-      const { quantity } = req.body;
-
-      // Validate quantity
-      if (typeof quantity !== "number" || quantity < 1) {
-        return res.status(400).json({ message: "Invalid quantity" });
-      }
-
-      // Check if cart item exists and belongs to user
-      const cartItems = await db.select().from(schema.cartItems)
-        .where(and(eq(schema.cartItems.id, cartItemId), eq(schema.cartItems.userId, userId)))
-        .limit(1);
-
-      if (cartItems.length === 0) {
-        return res.status(404).json({ message: "Cart item not found" });
-      }
-
-      // Update cart item
-      const updatedCartItems = await db.update(schema.cartItems).set({ quantity })
-        .where(eq(schema.cartItems.id, cartItemId)).returning();
-      res.json(updatedCartItems[0]);
-    } catch (error) {
-      console.error("Update cart item error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  apiRouter.delete("/cart/:id", isAuthenticated, async (req, res) => {
-    try {
-      const userId = req.session.userId;
-      const db = req.app.locals.db;
-      const cartItemId = parseInt(req.params.id);
-      if (isNaN(cartItemId)) return res.status(400).json({ message: "Invalid cart item ID" });
-
-      // Check if cart item exists and belongs to user
-      const cartItems = await db.delete(schema.cartItems)
-        .where(and(eq(schema.cartItems.id, cartItemId), eq(schema.cartItems.userId, userId)))
-        .returning();
-
-      if (cartItems.length === 0) {
-        return res.status(404).json({ message: "Cart item not found" });
-      }
-      res.json({ message: "Cart item removed" });
-    } catch (error) {
-      console.error("Delete cart item error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  apiRouter.delete("/cart", isAuthenticated, async (req, res) => {
-    try {
-      const db = req.app.locals.db;
-      const userId = req.session.userId;
-
-      // Clear user's cart
-      await db.delete(schema.cartItems).where(eq(schema.cartItems.userId, userId));
-      res.json({ message: "Cart cleared" });
-    } catch (error) {
-      console.error("Clear cart error:", error);
-      res.status(500).json({ message: "Internal server error" });
     }
   });
 

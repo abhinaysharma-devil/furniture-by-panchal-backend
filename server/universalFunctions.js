@@ -7,7 +7,7 @@ export const isAuthenticated = (req, res, next) => {
         jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
             if (err) {
                 console.error("JWT verification error:", err);
-                return res.status(401).json({ message: "Unauthorized" });
+                return res.status(401).json({ message: err.message || "Unauthorized" });
             }
 
             const userId = decoded.userId;
@@ -15,6 +15,6 @@ export const isAuthenticated = (req, res, next) => {
             next();
         });
     } else {
-        res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Token missing" });
     }
 };

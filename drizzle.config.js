@@ -1,29 +1,44 @@
-import { drizzle } from 'drizzle-orm/node-postgres'; // Keep this if you are using node-postgres directly
-import { sql } from 'drizzle-orm';
-import pkg from 'pg';
-const { Pool } = pkg;
+import { defineConfig } from 'drizzle-kit';
+import 'dotenv/config';
 
-import * as schema from './shared/schema.js'; // adjust if needed
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+export default defineConfig({
+  dialect: 'postgresql',
+  schema: './shared/schema.js',
+  out: './drizzle/migrations',
+  dbCredentials: {
+    url: process.env.DATABASE_URL,
+  },
+  verbose: true,
+  strict: true,
 });
 
-const db = drizzle(pool, { schema });
 
-console.log('Database connection established');
+// import { drizzle } from 'drizzle-orm/node-postgres'; // Keep this if you are using node-postgres directly
+// import { sql } from 'drizzle-orm';
+// import pkg from 'pg';
+// const { Pool } = pkg;
 
-// Test the database connection with a simple query
-(async () => {
-  try {
-    await db.execute(sql`SELECT 1`);
-    console.log('Database connection test query successful.');
-  } catch (error) {
-    console.error('Database connection test query failed:', error);
-  }
-})();
+// import * as schema from './shared/schema.js'; // adjust if needed
+// import dotenv from 'dotenv';
 
-export { db, pool };
+// dotenv.config();
+
+// const pool = new Pool({
+//   connectionString: process.env.DATABASE_URL,
+// });
+
+// const db = drizzle(pool, { schema });
+
+// console.log('Database connection established');
+
+// // Test the database connection with a simple query
+// (async () => {
+//   try {
+//     await db.execute(sql`SELECT 1`);
+//     console.log('Database connection test query successful.');
+//   } catch (error) {
+//     console.error('Database connection test query failed:', error);
+//   }
+// })();
+
+// export { db, pool };
