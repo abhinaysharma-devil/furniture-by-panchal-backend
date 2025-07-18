@@ -18,7 +18,7 @@ export const sendMail = (payload) => {
 
     // Email options
     const mailOptions = {
-        from: '"furniturebypanchal" <no-reply@furniturebypanchal.com>',
+        from: '"Team FurnitureByPanchal" <no-reply@furniturebypanchal.com>',
         to: payload.to || 'ab.sharma@thesynapses.com',
         subject: payload.subject || 'Test Email from Node.js using Brevo',
         html: payload.html || "<h1>Hello from Brevo SMTP</h1><p>This is a test email sent using Nodemailer with Brevo SMTP.</p>",
