@@ -32,6 +32,7 @@ export const furnitureItems = pgTable("furniture_items", {
   imgPath: text("imgPath").notNull(),
   featured: boolean("featured").default(false),
   inStock: boolean("inStock").default(true),
+  isDeleted: boolean("isDeleted").default(false),
   rating: doublePrecision("rating").default(0),
   reviewCount: integer("reviewCount").default(0),
   slug: text("slug").notNull(),

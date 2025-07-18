@@ -33,19 +33,19 @@ const universalDao = {
     async getItemBySlug(payload) {
         return db.select()
             .from(schema.furnitureItems)
-            .where(eq(schema.furnitureItems.slug, payload.slug));
+            .where(and(eq(schema.furnitureItems.slug, payload.slug), eq(schema.furnitureItems.isDeleted, false)));
     },
 
     async getItemById(payload) {
         return db.select()
             .from(schema.furnitureItems)
-            .where(eq(schema.furnitureItems.id, payload.id));
+            .where(and(eq(schema.furnitureItems.id, payload.id), eq(schema.furnitureItems.isDeleted, false)));
     },
 
     async itemListByCatId(payload) {
         return db.select()
             .from(schema.furnitureItems)
-            .where(eq(schema.furnitureItems.categoryId, payload.categoryId));
+            .where(and(eq(schema.furnitureItems.categoryId, payload.categoryId), eq(schema.furnitureItems.isDeleted, false)));
     },
 
     // Cart Methods
@@ -88,7 +88,7 @@ const universalDao = {
                 },
             })
             .from(schema.cartItems)
-            .leftJoin(schema.furnitureItems, eq(schema.cartItems.itemId, schema.furnitureItems.id))
+            .leftJoin(schema.furnitureItems, and(eq(schema.cartItems.itemId, schema.furnitureItems.id), eq(schema.furnitureItems.isDeleted, false)))
             .where(eq(schema.cartItems.userId, payload.userId));
     },
 
@@ -173,6 +173,17 @@ const universalDao = {
             .where(eq(schema.users.id, payload.userId))
             .returning();
     },
+
+    async addOrder(payload) {
+        return db.insert(schema.orders).values(payload).returning();
+    },
+
+    async getFurniturePieces(itemIds) {
+        return db.select({ id: schema.furnitureItems.id, title: schema.furnitureItems.title, price: schema.furnitureItems.price })
+            .from(schema.furnitureItems)
+            .where(inArray(schema.furnitureItems.id, itemIds));
+    },
+
 
 }
 

@@ -4,13 +4,15 @@ import bcrypt from "bcryptjs";
 import { insertUserSchema } from "../../shared/schema.js";
 import randomInteger from 'random-int';
 import { sendMail } from "../../services/smtpServices.js";
-import otpTemplate from "../templates/mailTemplates.js";
+import {otpTemplate} from "../templates/mailTemplates.js";
 import jwt from "jsonwebtoken";
 
 export async function userLogin(req, res) {
     try {
 
-        const userData = insertUserSchema.parse(req.body);
+        console.log('req.body', req.body)
+
+        const userData = req.body
 
         // Check if user already exists
         const existingUsers = await universalDao.getUserByEmail({ email: userData.email });
@@ -25,9 +27,6 @@ export async function userLogin(req, res) {
             return res.status(400).json({ message: "Invalid Password" });
         }
 
-        // Set session
-        req.session.userId = existingUsers[0].id;
-        req.session.isAuthenticated = true;
         const { password: _, ...userWithoutPassword } = existingUsers[0];
 
         const user = userWithoutPassword;
@@ -39,23 +38,12 @@ export async function userLogin(req, res) {
             }
             res.json({ user: userWithoutPassword, token });
         });
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(userData.password, salt);
-
-        // Create user
-        const newUsers = await universalDao.createUser({
-            ...userData,
-            password: hashedPassword,
-        });
-
-        res.status(201).json({ message: "Otp Send to your Mail", data: newUsers[0] });
 
     } catch (error) {
+        console.log('error>>>>>>>>>', error)
         if (error instanceof z.ZodError) {
             return res.status(400).json({ message: "Invalid user data", errors: error.errors });
         }
-        console.error("Create user error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 }
@@ -109,17 +97,22 @@ export async function verifyOtp(req, res) {
 
         const userData = req.body
 
+        console.log("Verify OTP request received:", userData);
+
         // Check if user already exists
         const existingUsers = await universalDao.getUserByEmail({ email: userData.email });
         if (existingUsers.length == 0) {
             return res.status(409).json({ message: "User with this email does not exist" });
         }
 
-        if (existingUsers[0].otp !== userData.otp) {
+        console.log("existingUsers[0].otp", existingUsers[0].otp);
+        console.log("userData.otp", userData.otp);
+
+        if (existingUsers[0].otp != userData.otp) {
             return res.status(400).json({ message: "Invalid OTP" });
         }
 
-        await universalDao.updateOtpStatus({ userId : existingUsers[0].id });
+        await universalDao.updateOtpStatus({ userId: existingUsers[0].id });
 
         const { password: _, ...userWithoutPassword } = existingUsers[0];
 

@@ -5,6 +5,7 @@ import { universalDao } from "../dao/universalDao.js"
 export async function categoryDetailsBySlug(req, res) {
     try {
 
+
         const slug = req.query.slug
 
         const categoryIdBySlug = await universalDao.categoryIdBySlug({ slug })

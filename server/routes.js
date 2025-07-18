@@ -18,7 +18,7 @@ import { eq, and, desc, inArray } from 'drizzle-orm';
 import * as schema from "../shared/schema.js";
 import jwt from "jsonwebtoken";
 import { sendMail } from "../services/smtpServices.js";
-import otpTemplate from "./templates/mailTemplates.js";
+// import otpTemplate from "./templates/mailTemplates.js";
 
 // Session types
 // TypeScript specific session declaration removed.

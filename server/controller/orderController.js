@@ -1,12 +1,15 @@
 import { z } from "zod";
 import { universalDao } from "../dao/universalDao.js"
+import {
+    insertOrderSchema
+} from "../../shared/schema.js";
+
+import { sendMail } from "../../services/smtpServices.js";
+import { orderTemplateForAdmin } from "../templates/mailTemplates.js";
 
 
 export async function changeOrderStatus(req, res) {
     try {
-
-        // const userId = req.userId;
-        // const orderId = parseInt(req.params.id);
 
         const { orderId, status } = req.body;
 
@@ -33,21 +36,19 @@ export async function addOrders(req, res) {
     try {
 
         const userId = req.userId;
-        // const orderId = parseInt(req.params.id);
-
-        const { orderId, status } = req.body;
 
         // Get cart items
         const cartItems = await universalDao.getCartDetailByUserId({ userId })
 
+        console.log('cartItems', cartItems)
         if (cartItems.length === 0) {
             return res.status(400).json({ message: "Cart is empty" });
         }
         // Get item details for each cart item
         const itemIds = cartItems.map(ci => ci.itemId);
-        const furniturePieces = await db.select({ id: schema.furnitureItems.id, title: schema.furnitureItems.title, price: schema.furnitureItems.price })
-            .from(schema.furnitureItems)
-            .where(inArray(schema.furnitureItems.id, itemIds));
+        const furniturePieces = await universalDao.getFurniturePieces(itemIds)
+
+        console.log('furniturePieces', furniturePieces)
 
         const itemDetailsMap = new Map();
         furniturePieces.forEach(fp => itemDetailsMap.set(fp.id, { title: fp.title, price: fp.price }));
@@ -79,21 +80,24 @@ export async function addOrders(req, res) {
             status: "pending"
         });
 
-        const newOrders = await db.insert(schema.orders).values(orderData).returning();
+        let newOrderData = await universalDao.addOrder(orderData)
 
+        await universalDao.clearCart({ userId })
 
-        if (getOrderById.length === 0) {
-            return res.status(404).json({ message: "Order not found" });
-        }
+        sendMail({
+            to: "panchalabhinay@gmail.com",
+            subject: "Order Alert - Furniture By Panchal",
+            html: orderTemplateForAdmin(newOrderData[0])
+        });
 
-        await universalDao.updateOrderStatusById({ orderId, status })
+        res.status(201).json(newOrderData[0]);
 
-        res.status(201).json(getOrderById);
     } catch (error) {
+        console.log('Error creating order:', error.message);
         if (error instanceof z.ZodError) {
             res.status(400).json({ message: error.errors });
         } else {
-            console.error("Create order error:", error);
+            console.error("Create order error stack:", error.stack);
             res.status(500).json({ message: "Internal server error" });
         }
     }
