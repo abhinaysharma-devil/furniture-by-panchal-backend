@@ -9,6 +9,9 @@ import { categoryRoute } from "./routes/categoryRoute.js";
 import { cartRoute } from "./routes/cartRoute.js";
 import { userRoutes } from "./routes/userRoute.js";
 import { otherStuff } from "./routes/otherStuffRoute.js";
+import { paymentRoutes } from "./routes/paymentRoute.js";
+
+// Create Express app
 
 const app = express();
 
@@ -50,6 +53,7 @@ app.use("/api/category", categoryRoute())
 app.use("/api/cart", cartRoute())
 app.use("/api/user", userRoutes())
 app.use("/api/stuff", otherStuff())
+app.use("/rzp", paymentRoutes())
 
 app.use((req, res, next) => {
   const start = Date.now();

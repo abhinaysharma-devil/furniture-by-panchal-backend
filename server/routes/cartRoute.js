@@ -9,8 +9,8 @@ export const cartRoute = function () {
     router.post("/add", isAuthenticated, addItemInCart);
     router.get("/get", isAuthenticated, getCartDetails);
     router.put("/:id", isAuthenticated, updateCartItem);
-    router.delete("/:id", isAuthenticated, removeCartItem);
-    router.delete("/", isAuthenticated, clearUserCart);
+    router.delete("/clear/:id", isAuthenticated, removeCartItem);
+    router.delete("/clear", isAuthenticated, clearUserCart);
 
     return router;
 

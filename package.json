@@ -31,6 +31,7 @@
     "passport-local": "^1.0.0",
     "pg": "^8.16.0",
     "random-int": "^3.0.0",
+    "razorpay": "^2.9.6",
     "resend": "^4.5.1",
     "rest-express": "file:",
     "ws": "^8.18.0",
