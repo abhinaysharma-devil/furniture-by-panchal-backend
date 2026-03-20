@@ -6,8 +6,6 @@
   "scripts": {
     "dev": "nodemon server/index.js",
     "start": "node server/index.js",
-    "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate",
     "db:migrate": "node migrate.js"
   },
   "dependencies": {
