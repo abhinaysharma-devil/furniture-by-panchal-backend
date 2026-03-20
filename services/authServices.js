@@ -20,7 +20,6 @@ let authServices = {
             if (error instanceof z.ZodError) {
                 res.status(400).json({ message: error.errors });
             } else {
-                console.log("Login error:", error);
                 res.status(500).json({ message: "Internal server error" });
             }
         }

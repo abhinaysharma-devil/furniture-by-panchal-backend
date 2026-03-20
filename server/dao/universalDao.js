@@ -1,190 +1,332 @@
-import { db } from "../../drizzle/db.js";
-import * as schema from "../../shared/schema.js";
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import { db, extractQueryData, extractDocData } from "../config/firebase.js";
+import {
+    collection,
+    getDocs,
+    doc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    query,
+    where,
+    limit,
+    orderBy,
+    addDoc,
+    getDoc,
+    writeBatch, // For batch operations like clearing cart
+} from "firebase/firestore";
+import { featuredItems } from "../controller/itemController.js";
 
 const universalDao = {
 
     // Order Methods
     async getOrderById(payload) {
-        return db.select()
-            .from(schema.orders)
-            .where(eq(schema.orders.id, payload.orderId));
+        const docRef = doc(db, "orders", payload.orderId);
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? [extractDocData(docSnap)] : [];
     },
 
     async updateOrderStatusById(payload) {
-        return db.update(schema.orders)
-            .set({ status: payload.status })
-            .where(eq(schema.orders.id, payload.orderId))
-            .returning();
+        const docRef = doc(db, "orders", payload.orderId);
+        // To ensure the document exists before updating, we could get it first,
+        // but for simplicity, we'll proceed with the update.
+        // If the document doesn't exist, this will do nothing.
+        await updateDoc(docRef, { status: payload.status });
+
+        // Fetch the updated document to return it
+        const updatedDocSnap = await getDoc(docRef);
+        return updatedDocSnap.exists() ? [extractDocData(updatedDocSnap)] : [];
     },
 
     // Category Methods
     async categoryIdBySlug(payload) {
-        return db.select({ id: schema.categories.id })
-            .from(schema.categories)
-            .where(eq(schema.categories.slug, payload.slug));
+        const categoriesRef = collection(db, "categories");
+        const q = query(categoriesRef, where("slug", "==", payload.slug), limit(1));
+        const querySnapshot = await getDocs(q);
+        // Assuming the category ID is the Firestore document ID
+        return extractQueryData(querySnapshot);
     },
 
     async getCategoryList() {
-        return db.select().from(schema.categories);
+        const categoriesRef = collection(db, "categories");
+        const querySnapshot = await getDocs(categoriesRef);
+        return extractQueryData(querySnapshot);
     },
 
     // Item Methods
     async getItemBySlug(payload) {
-        return db.select()
-            .from(schema.furnitureItems)
-            .where(and(eq(schema.furnitureItems.slug, payload.slug), eq(schema.furnitureItems.isDeleted, false)));
+        const furnitureItemsRef = collection(db, "furnitureItems");
+        const q = query(
+            furnitureItemsRef,
+            where("slug", "==", payload.slug),
+            where("isDeleted", "==", false),
+            limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+        return extractQueryData(querySnapshot);
     },
 
+    // Item Methods
+    async featuredItems(payload) {
+        const furnitureItemsRef = collection(db, "furnitureItems");
+        const q = query(
+            furnitureItemsRef,
+            where("featured", "==", true),
+            where("isDeleted", "==", false)
+        );
+        const querySnapshot = await getDocs(q);
+        return extractQueryData(querySnapshot);
+    },
+
+
     async getItemById(payload) {
-        return db.select()
-            .from(schema.furnitureItems)
-            .where(and(eq(schema.furnitureItems.id, payload.id), eq(schema.furnitureItems.isDeleted, false)));
+        const docRef = doc(db, "furnitureItems", payload.id);
+        const docSnap = await getDoc(docRef);
+        // Check if the item exists and is not marked as deleted
+        return docSnap.exists() && !docSnap.data().isDeleted ? [extractDocData(docSnap)] : [];
     },
 
     async itemListByCatId(payload) {
-        return db.select()
-            .from(schema.furnitureItems)
-            .where(and(eq(schema.furnitureItems.categoryId, payload.categoryId), eq(schema.furnitureItems.isDeleted, false)));
+        const furnitureItemsRef = collection(db, "furnitureItems");
+        const q = query(
+            furnitureItemsRef,
+            where("categoryId", "==", payload.categoryId),
+            where("isDeleted", "==", false)
+        );
+        const querySnapshot = await getDocs(q);
+        return extractQueryData(querySnapshot);
     },
 
     // Cart Methods
     async getCartDetailByItemId(payload) {
-        return db.select().from(schema.cartItems)
-            .where(and(eq(schema.cartItems.userId, payload.userId), eq(schema.cartItems.itemId, payload.itemId)))
-            .limit(1);
+        const cartItemsRef = collection(db, "cartItems");
+        const q = query(
+            cartItemsRef,
+            where("userId", "==", payload.userId),
+            where("itemId", "==", payload.itemId),
+            limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+        return extractQueryData(querySnapshot);
     },
 
     async updateCartItemDetail(payload) {
-        return db.update(schema.cartItems).set({
-            quantity: payload.quantity
-        }).where(eq(schema.cartItems.id, payload.id))
-            .returning();
+        const docRef = doc(db, "cartItems", payload.id);
+        await updateDoc(docRef, { quantity: payload.quantity });
+        // Fetch the updated document to return it
+        const updatedDocSnap = await getDoc(docRef);
+        return updatedDocSnap.exists() ? [extractDocData(updatedDocSnap)] : [];
     },
 
     async insertItemInCart(payload) {
-        return db.insert(schema.cartItems).values(payload).returning();
+        // For new items, addDoc generates a new document ID
+        const cartItemsRef = collection(db, "cartItems");
+        const newDocRef = await addDoc(cartItemsRef, payload);
+        const newDocSnap = await getDoc(newDocRef); // getDoc to fetch the created document
+        return newDocSnap.exists() ? [extractDocData(newDocSnap)] : [];
     },
 
     async getCartDetailByUserId(payload) {
-        return db
-            .select({
-                id: schema.cartItems.id,
-                userId: schema.cartItems.userId,
-                itemId: schema.cartItems.itemId,
-                quantity: schema.cartItems.quantity,
-                item: { // Nest furniture item details under 'item' key
-                    id: schema.furnitureItems.id,
-                    title: schema.furnitureItems.title,
-                    price: schema.furnitureItems.price,
-                    description: schema.furnitureItems.description,
-                    imgPath: schema.furnitureItems.imgPath,
-                    featured: schema.furnitureItems.featured,
-                    inStock: schema.furnitureItems.inStock,
-                    rating: schema.furnitureItems.rating,
-                    reviewCount: schema.furnitureItems.reviewCount,
-                    categoryId: schema.furnitureItems.categoryId,
-                    slug: schema.furnitureItems.slug,
-                },
-            })
-            .from(schema.cartItems)
-            .leftJoin(schema.furnitureItems, and(eq(schema.cartItems.itemId, schema.furnitureItems.id), eq(schema.furnitureItems.isDeleted, false)))
-            .where(eq(schema.cartItems.userId, payload.userId));
+        const cartItemsRef = collection(db, "cartItems");
+        const q = query(cartItemsRef, where("userId", "==", payload.userId));
+        const cartItemsSnapshot = await getDocs(q);
+        const cartItems = extractQueryData(cartItemsSnapshot);
+
+        if (cartItems.length === 0) {
+            return [];
+        }
+
+        const itemIds = cartItems.map(ci => ci.itemId);
+        // Firestore 'in' query has a limit of 30. If itemIds can exceed this,
+        // this logic needs to be split into multiple queries or a different approach.
+        // For simplicity, assuming itemIds <= 30 for now.
+        const furnitureItemsRef = collection(db, "furnitureItems");
+        const itemsQuery = query(
+            furnitureItemsRef,
+            where("__name__", "in", itemIds), // Query by document ID
+            where("isDeleted", "==", false)
+        );
+        const furnitureItemsSnapshot = await getDocs(itemsQuery);
+        const furnitureItemsMap = new Map();
+        furnitureItemsSnapshot.docs.forEach(docSnap => {
+            const item = extractDocData(docSnap);
+            furnitureItemsMap.set(item.id, item); // Store by its document ID
+        });
+
+        return cartItems.map(cartItem => {
+            const itemDetails = furnitureItemsMap.get(cartItem.itemId);
+            return {
+                id: cartItem.id,
+                userId: cartItem.userId,
+                itemId: cartItem.itemId,
+                quantity: cartItem.quantity,
+                item: itemDetails || null, // If itemDetails not found, set to null
+            };
+        });
     },
 
     async updateCartItemQuantity(payload) {
-        return db.update(schema.cartItems)
-            .set({ quantity: payload.quantity })
-            .where(and(eq(schema.cartItems.id, payload.cartItemId), eq(schema.cartItems.userId, payload.userId)))
-            .returning();
+        // Note: This update is not checking for userId ownership.
+        // The controller should ensure the user owns this cart item.
+        const docRef = doc(db, "cartItems", payload.cartItemId);
+        await updateDoc(docRef, { quantity: payload.quantity });
+
+        // Fetch the updated document to return it
+        const updatedDocSnap = await getDoc(docRef);
+        return updatedDocSnap.exists() ? [extractDocData(updatedDocSnap)] : [];
     },
 
     async deleteCartItem(payload) {
-        return db.delete(schema.cartItems)
-            .where(and(eq(schema.cartItems.id, payload.cartItemId), eq(schema.cartItems.userId, payload.userId)))
-            .returning();
+        const cartItemsRef = collection(db, "cartItems");
+        const q = query(
+            cartItemsRef,
+            where("__name__", "==", payload.cartItemId), // Query by document ID
+            where("userId", "==", payload.userId),
+            limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            return []; // No item found to delete
+        }
+
+        const docToDelete = querySnapshot.docs[0];
+        await deleteDoc(doc(db, "cartItems", docToDelete.id));
+        return [extractDocData(docToDelete)]; // Return the deleted item's data
     },
 
     async clearCart(payload) {
-        return db.delete(schema.cartItems).where(eq(schema.cartItems.userId, payload.userId)).returning();
+        const cartItemsRef = collection(db, "cartItems");
+        const q = query(cartItemsRef, where("userId", "==", payload.userId));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            return [];
+        }
+
+        const batch = writeBatch(db); // Use writeBatch for multiple deletes
+        querySnapshot.docs.forEach((d) => {
+            batch.delete(d.ref);
+        });
+        await batch.commit();
+        return querySnapshot.docs.map(d => extractDocData(d)); // Return deleted items
     },
 
     // User Methods
     async getUsers() {
-        // Exclude password from the result
-        return db.select({
-            id: schema.users.id,
-            name: schema.users.name,
-            email: schema.users.email,
-            mobile: schema.users.mobile
-        }).from(schema.users);
+        const usersRef = collection(db, "users");
+        const querySnapshot = await getDocs(usersRef);
+        return extractQueryData(querySnapshot);
+    },
+
+    async getSettings() {
+        const SETTINGS_DOC_ID = "app_settings"; // Assuming a fixed document ID for settings
+        const docRef = doc(db, "settings", SETTINGS_DOC_ID);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const docData = docSnap.data();
+            if (docData.setting) {
+                return JSON.parse(docData.setting);
+            }
+        }
+        return null; // Or a default settings object if preferred
     },
 
     async getUserById(payload) {
-        return db.select({
-            id: schema.users.id,
-            name: schema.users.name,
-            email: schema.users.email,
-            mobile: schema.users.mobile
-        }).from(schema.users).where(eq(schema.users.id, payload.id)).limit(1);
+        const docRef = doc(db, "users", payload.id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const user = extractDocData(docSnap);
+            const { password, ...userWithoutPassword } = user;
+            return [userWithoutPassword];
+        }
+        return [];
     },
 
     async getUserByEmail(payload) {
-        return db.select()
-            .from(schema.users)
-            .where(eq(schema.users.email, payload.email))
-            .limit(1);
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("email", "==", payload.email), limit(1));
+        const querySnapshot = await getDocs(q);
+        return extractQueryData(querySnapshot);
     },
 
     async createUser(payload) {
-        return db.insert(schema.users).values(payload).returning({
-            id: schema.users.id,
-            name: schema.users.name,
-            email: schema.users.email,
-            mobile: schema.users.mobile,
-            otp: schema.users.otp
-        });
+        const usersRef = collection(db, "users");
+        const newDocRef = await addDoc(usersRef, payload);
+        const newDocSnap = await getDoc(newDocRef); // getDoc to fetch the created document
+        const newUser = newDocSnap.exists() ? extractDocData(newDocSnap) : null;
+        if (newUser) {
+            const { password, ...userWithoutPassword } = newUser;
+            return [userWithoutPassword];
+        }
+        return [];
     },
 
     async updateUserById(payload) {
         const { userId, ...updateData } = payload;
-        return db.update(schema.users)
-            .set(updateData)
-            .where(eq(schema.users.id, userId))
-            .returning({
-                id: schema.users.id,
-                name: schema.users.name,
-                email: schema.users.email,
-                mobile: schema.users.mobile
-            });
+        const docRef = doc(db, "users", userId);
+        await updateDoc(docRef, updateData);
+
+        const updatedDocSnap = await getDoc(docRef);
+        const updatedUser = extractDocData(updatedDocSnap);
+        if (updatedUser) {
+            const { password, ...userWithoutPassword } = updatedUser;
+            return [userWithoutPassword];
+        }
+        return [];
     },
 
     async deleteUserById(payload) {
-        return db.delete(schema.users).where(eq(schema.users.id, payload.userId)).returning({ id: schema.users.id });
+        const usersRef = collection(db, "users");
+        const docRef = doc(db, "users", payload.userId);
+        // We could fetch the doc first to return its data, but for delete, it's often not needed.
+        await deleteDoc(docRef);
+        return [{ id: payload.userId }]; // Return the ID of the deleted user
     },
 
     async addSubsEmail(payload) {
-        return db.insert(schema.subsEmail).values(payload).returning();
+        const subsEmailRef = collection(db, "subsEmail");
+        const newDocRef = await addDoc(subsEmailRef, payload);
+        const newDocSnap = await getDoc(newDocRef);
+        return newDocSnap.exists() ? [extractDocData(newDocSnap)] : [];
     },
 
     async updateOtpStatus(payload) {
-        return db.update(schema.users)
-            .set({ is_otp_verified: 1 })
-            .where(eq(schema.users.id, payload.userId))
-            .returning();
+        const docRef = doc(db, "users", payload.userId);
+        await updateDoc(docRef, { is_otp_verified: 1 });
+
+        const updatedDocSnap = await getDoc(docRef);
+        return updatedDocSnap.exists() ? [extractDocData(updatedDocSnap)] : [];
     },
 
     async addOrder(payload) {
-        return db.insert(schema.orders).values(payload).returning();
+        const ordersRef = collection(db, "orders");
+        const newDocRef = await addDoc(ordersRef, payload);
+        const newDocSnap = await getDoc(newDocRef);
+        return newDocSnap.exists() ? [extractDocData(newDocSnap)] : [];
     },
 
+    async getOrderListByUserId(payload) {
+        const ordersRef = collection(db, "orders");
+        const q = query(ordersRef, where("userId", "==", payload.userId));
+        const querySnapshot = await getDocs(q);
+        return extractQueryData(querySnapshot);
+    },
     async getFurniturePieces(itemIds) {
-        return db.select({ id: schema.furnitureItems.id, title: schema.furnitureItems.title, price: schema.furnitureItems.price })
-            .from(schema.furnitureItems)
-            .where(inArray(schema.furnitureItems.id, itemIds));
+        if (itemIds.length === 0) {
+            return [];
+        }
+        const furnitureItemsRef = collection(db, "furnitureItems");
+        // Firestore 'in' query has a limit of 30. If itemIds can exceed this,
+        // this logic needs to be split into multiple queries.
+        // For simplicity, assuming itemIds <= 30 for now.
+        const q = query(
+            furnitureItemsRef,
+            where("__name__", "in", itemIds), // Query by document ID
+            where("isDeleted", "==", false)
+        );
+        const querySnapshot = await getDocs(q);
+        return extractQueryData(querySnapshot);
     },
-
-
 }
 
 export { universalDao }

@@ -9,14 +9,14 @@ export async function addSubsEmail(req, res) {
 
         const { email } = req.body;
 
-        await universalDao.addSubsEmail({ email, created_at: new Date() });
+        await universalDao.addSubsEmail({ email, created_at: new Date().toISOString() }); // Use ISO string for date
 
         res.status(201).json({ message: "Subscription email added successfully" });
     } catch (error) {
         if (error instanceof z.ZodError) {
             res.status(400).json({ message: error.errors });
         } else {
-            console.error("Create order error:", error);
+            console.error("Add subscription email error:", error); // More specific error message
             res.status(500).json({ message: "Internal server error" });
         }
     }
@@ -38,9 +38,8 @@ export async function sendMailToAdmin(req, res) {
         if (error instanceof z.ZodError) {
             res.status(400).json({ message: error.errors });
         } else {
-            console.error("Create order error:", error);
+            console.error("Send mail to admin error:", error); // More specific error message
             res.status(500).json({ message: "Internal server error" });
         }
     }
 }
-

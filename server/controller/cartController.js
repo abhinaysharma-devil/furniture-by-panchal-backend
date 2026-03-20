@@ -8,6 +8,7 @@ export async function addItemInCart(req, res) {
         const quantity = req.body.quantity
         const userId = req.userId;
 
+
         const getItemById = await universalDao.getItemById({ id: itemId })
 
         if (getItemById.length === 0) {
@@ -15,15 +16,16 @@ export async function addItemInCart(req, res) {
         } else {
 
             // Check if item is already in cart
-            const getCartDetailByItemId = await universalDao.getCartDetailByItemId({
+            const existingCartItems = await universalDao.getCartDetailByItemId({
                 userId,
                 itemId
             })
 
-            if (getCartDetailByItemId && getCartDetailByItemId.length != 0) {
+            if (existingCartItems && existingCartItems.length !== 0) { // Changed to !== 0 for clarity
+                const existingCartItem = existingCartItems[0];
                 await universalDao.updateCartItemDetail({
-                    quantity: getCartDetailByItemId[0].quantity + (quantity || 1),
-                    id: getCartDetailByItemId[0].id
+                    quantity: existingCartItem.quantity + (quantity || 1),
+                    id: existingCartItem.id // Use the Firestore document ID
                 })
                 // Add new item to cart
                 return res.status(200).json({
@@ -34,7 +36,8 @@ export async function addItemInCart(req, res) {
                 await universalDao.insertItemInCart({
                     quantity,
                     itemId,
-                    userId
+                    userId,
+                    // id: Date.now() // Assign a temporary client-side ID for consistency with Drizzle's auto-increment, though Firestore will generate its own doc ID. This 'id' field will be stored in the document.
                 })
 
                 // Add new item to cart
@@ -47,7 +50,7 @@ export async function addItemInCart(req, res) {
         if (error instanceof z.ZodError) {
             res.status(400).json({ message: error });
         } else {
-            console.error("Create order error:", error);
+            console.error("Add item to cart error:", error); // More specific error message
             res.status(500).json({ message: error.message });
         }
     }
@@ -68,7 +71,7 @@ export async function getCartDetails(req, res) {
         if (error instanceof z.ZodError) {
             res.status(400).json({ message: error });
         } else {
-            console.error("Get cart details error:", error);
+            console.error("Get cart details error:", error); // More specific error message
             res.status(500).json({ message: error.message });
         }
     }
@@ -77,10 +80,10 @@ export async function getCartDetails(req, res) {
 export async function updateCartItem(req, res) {
     try {
         const userId = req.userId;
-        const cartItemId = parseInt(req.params.id);
+        const cartItemId = req.body.id // This 'id' is the 'id' field within the document, not the Firestore doc ID.
         const { quantity } = req.body;
 
-        if (isNaN(cartItemId)) {
+        if (!cartItemId) {
             return res.status(400).json({ message: "Invalid cart item ID" });
         }
 
@@ -109,9 +112,9 @@ export async function updateCartItem(req, res) {
 export async function removeCartItem(req, res) {
     try {
         const userId = req.userId;
-        const cartItemId = parseInt(req.params.id);
+        const cartItemId = req.params.id // This 'id' is the 'id' field within the document, not the Firestore doc ID.
 
-        if (isNaN(cartItemId)) {
+        if (!cartItemId) {
             return res.status(400).json({ message: "Invalid cart item ID" });
         }
 

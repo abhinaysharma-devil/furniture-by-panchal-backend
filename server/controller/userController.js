@@ -1,28 +1,26 @@
 import { universalDao } from "../dao/universalDao.js";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { insertUserSchema } from "../../shared/schema.js";
 import randomInteger from 'random-int';
 import { sendMail } from "../../services/smtpServices.js";
-import {otpTemplate} from "../templates/mailTemplates.js";
 import jwt from "jsonwebtoken";
+import { otpTemplate } from "../templates/mailTemplates.js";
 
 export async function userLogin(req, res) {
     try {
-
-        console.log('req.body', req.body)
 
         const userData = req.body
 
         // Check if user already exists
         const existingUsers = await universalDao.getUserByEmail({ email: userData.email });
-        if (existingUsers.length == 0) {
+        if (existingUsers.length === 0) {
             return res.status(409).json({ message: "User with this email does not exist" });
         }
 
-        // // Compare passwords
-        const isMatch = await bcrypt.compare(userData.password, existingUsers[0].password);
+        const userRecord = existingUsers[0]; // Get the first user record
 
+        // Compare passwords
+        const isMatch = await bcrypt.compare(userData.password, userRecord.password);
         if (!isMatch) {
             return res.status(400).json({ message: "Invalid Password" });
         }
@@ -40,7 +38,6 @@ export async function userLogin(req, res) {
         });
 
     } catch (error) {
-        console.log('error>>>>>>>>>', error)
         if (error instanceof z.ZodError) {
             return res.status(400).json({ message: "Invalid user data", errors: error.errors });
         }
@@ -51,10 +48,7 @@ export async function userLogin(req, res) {
 export async function userSignup(req, res) {
     try {
 
-        console.log("User signup request received>>>>>>>>>>>", req.body);
-
         const userData = req.body
-        // const userData = insertUserSchema.parse(req.body);
 
         // Check if user already exists
         const existingUsers = await universalDao.getUserByEmail({ email: userData.email });
@@ -72,7 +66,8 @@ export async function userSignup(req, res) {
         const newUsers = await universalDao.createUser({
             ...userData,
             otp: randomOtp,
-            password: hashedPassword
+            password: hashedPassword,
+            is_otp_verified: 0 // Initialize OTP verification status
         });
 
         sendMail({
@@ -97,18 +92,15 @@ export async function verifyOtp(req, res) {
 
         const userData = req.body
 
-        console.log("Verify OTP request received:", userData);
-
         // Check if user already exists
         const existingUsers = await universalDao.getUserByEmail({ email: userData.email });
-        if (existingUsers.length == 0) {
+        if (existingUsers.length === 0) {
             return res.status(409).json({ message: "User with this email does not exist" });
         }
 
-        console.log("existingUsers[0].otp", existingUsers[0].otp);
-        console.log("userData.otp", userData.otp);
+        const userRecord = existingUsers[0];
 
-        if (existingUsers[0].otp != userData.otp) {
+        if (userRecord.otp != userData.otp) {
             return res.status(400).json({ message: "Invalid OTP" });
         }
 
@@ -116,7 +108,7 @@ export async function verifyOtp(req, res) {
 
         const { password: _, ...userWithoutPassword } = existingUsers[0];
 
-        const user = userWithoutPassword;
+        const user = userRecord;
 
         jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
             if (err) {
@@ -127,7 +119,7 @@ export async function verifyOtp(req, res) {
         });
 
     } catch (error) {
-        console.log("Verify OTP error:", error);
+
         if (error instanceof z.ZodError) {
             return res.status(400).json({ message: "Invalid user data", errors: error.errors });
         }
@@ -139,8 +131,11 @@ export async function verifyOtp(req, res) {
 // GET /api/user/list
 export async function listUsers(req, res) {
     try {
+
         const users = await universalDao.getUsers();
-        res.status(200).json(users);
+        // Filter out password from each user object
+        const usersWithoutPasswords = users.map(({ password, ...rest }) => rest);
+        res.status(200).json(usersWithoutPasswords);
     } catch (error) {
         console.error("List users error:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -150,17 +145,18 @@ export async function listUsers(req, res) {
 // GET /api/user/:id
 export async function getUser(req, res) {
     try {
-        const userId = parseInt(req.params.id);
-        if (isNaN(userId)) {
-            return res.status(400).json({ message: "Invalid user ID" });
-        }
+        // const userId = parseInt(req.params.id);
+        // if (isNaN(userId)) {
+        //     return res.status(400).json({ message: "Invalid user ID" });
+        // }
 
-        const users = await universalDao.getUserById({ id: userId });
+        const users = await universalDao.getUserById({ id: req.params.id });
         if (!users || users.length === 0) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(404).json({ message: "User not foundff" });
         }
 
-        res.status(200).json(users[0]);
+        const { password: _, ...userWithoutPassword } = users[0];
+        res.status(200).json(userWithoutPassword);
     } catch (error) {
         console.error("Get user error:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -169,8 +165,8 @@ export async function getUser(req, res) {
 
 // POST /api/user/add
 export async function createUser(req, res) {
-    try {
-        const userData = insertUserSchema.parse(req.body);
+    try { // Removed Drizzle schema validation
+        const userData = req.body;
 
         // Check if user already exists
         const existingUsers = await universalDao.getUserByEmail({ email: userData.email });
@@ -186,7 +182,11 @@ export async function createUser(req, res) {
         const newUsers = await universalDao.createUser({
             ...userData,
             password: hashedPassword,
+            is_otp_verified: 0 // Initialize OTP verification status
         });
+        if (newUsers.length === 0) {
+            return res.status(500).json({ message: "Failed to create user" });
+        }
 
         res.status(201).json(newUsers[0]);
     } catch (error) {
@@ -201,8 +201,9 @@ export async function createUser(req, res) {
 // PUT /api/user/:id
 export async function updateUser(req, res) {
     try {
-        const userId = parseInt(req.params.id);
-        if (isNaN(userId)) {
+        const userId = req.userId;
+
+        if (!userId) {
             return res.status(400).json({ message: "Invalid user ID" });
         }
 
@@ -222,7 +223,8 @@ export async function updateUser(req, res) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        res.status(200).json(updatedUsers[0]);
+        const { password: _, ...userWithoutPassword } = updatedUsers[0];
+        res.status(200).json(userWithoutPassword);
     } catch (error) {
         console.error("Update user error:", error);
         res.status(500).json({ message: "Internal server error" });

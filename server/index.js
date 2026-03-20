@@ -1,11 +1,11 @@
 import express from "express";
 import { registerRoutes } from "./routes.js";
 import { setupVite, log } from "./vite.js";
-import { db } from "../drizzle/db.js"; // Import the db instance
+import { db } from "./config/firebase.js"; // Import the db instance
 import cors from "cors";
-import { orderRoutes } from "./routes/orderRoutes.js"; 
-import { itemsRoute } from "./routes/itemsRoute.js"; 
-import { categoryRoute } from "./routes/categoryRoute.js"; 
+import { orderRoutes } from "./routes/orderRoutes.js";
+import { itemsRoute } from "./routes/itemsRoute.js";
+import { categoryRoute } from "./routes/categoryRoute.js";
 import { cartRoute } from "./routes/cartRoute.js";
 import { userRoutes } from "./routes/userRoute.js";
 import { otherStuff } from "./routes/otherStuffRoute.js";
@@ -24,21 +24,21 @@ const app = express();
 app.use(cors());
 
 app.use(function (req, res, next) {
-	// Website you wish to allow to connect
-	res.setHeader('Access-Control-Allow-Origin', '*')
+  // Website you wish to allow to connect
+  res.setHeader('Access-Control-Allow-Origin', '*')
 
-	// Request methods you wish to allow
-	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE')
+  // Request methods you wish to allow
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE')
 
-	// Request headers you wish to allow
-	res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization')
+  // Request headers you wish to allow
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization')
 
-	// Set to true if you need the website to include cookies in the requests sent
-	// to the API (e.g. in case you use sessions)
-	res.setHeader('Access-Control-Allow-Credentials', true)
+  // Set to true if you need the website to include cookies in the requests sent
+  // to the API (e.g. in case you use sessions)
+  res.setHeader('Access-Control-Allow-Credentials', true)
 
-	// Pass to next layer of middleware
-	next()
+  // Pass to next layer of middleware
+  next()
 })
 
 app.use(express.json());
@@ -69,7 +69,7 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      let logLine = `${req.method} ${path} ${res.statusCode} innnn ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -79,7 +79,7 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
-    }else if (path === "/"){
+    } else if (path === "/") {
       log(`${req.method} === ${path} ${res.statusCode} in ${duration}ms`);
       // res.status(200).send("welcome to the API");
     }
@@ -87,6 +87,13 @@ app.use((req, res, next) => {
 
   next();
 });
+
+//add global error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack); // Log the error stack for debugging
+  res.status(500).send('Something broke!');
+});
+
 
 (async () => {
   const server = await registerRoutes(app);
