@@ -95,36 +95,29 @@ app.use((err, req, res, next) => {
 });
 
 
+console.log("App starting...");
+
 (async () => {
+  console.log("Before registerRoutes");
+
   const server = await registerRoutes(app);
 
-  app.use((err, _req, res, _next) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+  console.log("After registerRoutes");
 
-    res.status(status).json({ message });
-    throw err;
-  });
+  console.log("Before Vite");
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  // if (app.get("env") === "development") {
-  await setupVite(app, server);
-  // } else {
-  //   serveStatic(app);
-  // }
+  if (process.env.NODE_ENV !== "production") {
+    await setupVite(app, server);
+  }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  console.log("Before listen");
+
   const port = process.env.PORT || 8080;
 
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    console.log(`Server running on ${port}`);
   });
 })();
